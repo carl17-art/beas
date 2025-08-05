@@ -28,7 +28,7 @@ if uploaded_files:
         df_total = pd.concat(dfs, ignore_index=True)
         # Normalizar nombres de columnas por si acaso
         df_total.columns = [c.strip() for c in df_total.columns]
-        # Convertir fechas y horas
+        
         # --- Normalizar fecha/hora ---
         def parse_fecha(dia):
             # Quita el día de la semana y deja solo la fecha
@@ -47,10 +47,6 @@ if uploaded_files:
         df_total["fechahora"] = df_total.apply(concat_fecha_hora, axis=1)
         df_total["fechahora"] = pd.to_datetime(df_total["fechahora"], format="%d/%m/%y %H:%M:%S", errors="coerce")
 
-
-        # Usaremos la hora de inicio para la línea de tiempo y filtros
-        df_total["fechahora"] = df_total["Hora de inicio"]
-        
         vehiculos = df_total['Activo'].dropna().unique()
         fecha_min = df_total['fechahora'].min()
         fecha_max = df_total['fechahora'].max()
@@ -84,10 +80,18 @@ if uploaded_files:
             for _, row in df_filtro.iterrows():
                 lat = row["Latitud de inicio"] / 1e6
                 lon = row["Longitud de inicio"] / 1e6
+                # Hora: extrae sólo la parte de la hora, nunca lanza error
+                hora_inicio = "-"
+                if pd.notnull(row['Hora de inicio']):
+                    h = str(row['Hora de inicio'])
+                    if " " in h:
+                        hora_inicio = h.split(" ")[-1]
+                    else:
+                        hora_inicio = h
                 popup = f"""
                 <b>Vehículo:</b> {row['Activo']}<br>
                 <b>Fecha:</b> {row['Fecha']}<br>
-                <b>Hora inicio:</b> {row['Hora de inicio'].time() if pd.notnull(row['Hora de inicio']) else '-'}<br>
+                <b>Hora inicio:</b> {hora_inicio}<br>
                 <b>Dirección:</b> {row['Ubicación de inicio']}<br>
                 <b>Km inicial:</b> {row['Iniciar cuentakilómetros [km]']}<br>
                 <b>Km final:</b> {row['Finalizar cuentakilómetros [km]']}<br>
@@ -108,4 +112,3 @@ if uploaded_files:
         st.download_button("Descargar CSV", data=csv, file_name='datos_filtrados.csv', mime='text/csv')
 else:
     st.info("Sube al menos un archivo Excel para empezar.")
-
