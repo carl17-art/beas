@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
-from io import BytesIO
-from datetime import datetime
 
 st.set_page_config(layout="wide")
 st.title("Mapa Interactivo de Desplazamientos y Paradas de Vehículos")
@@ -26,12 +24,10 @@ if uploaded_files:
 
     if dfs:
         df_total = pd.concat(dfs, ignore_index=True)
-        # Normalizar nombres de columnas por si acaso
         df_total.columns = [c.strip() for c in df_total.columns]
         
         # --- Normalizar fecha/hora ---
         def parse_fecha(dia):
-            # Quita el día de la semana y deja solo la fecha
             try:
                 return dia.split(" ",1)[1] if " " in dia else dia
             except Exception:
@@ -48,26 +44,30 @@ if uploaded_files:
         df_total["fechahora"] = pd.to_datetime(df_total["fechahora"], format="%d/%m/%y %H:%M:%S", errors="coerce")
 
         vehiculos = df_total['Activo'].dropna().unique()
-        fecha_min = df_total['fechahora'].min()
-        fecha_max = df_total['fechahora'].max()
+        fechas_validas = df_total['fechahora'].dropna()
+        if len(fechas_validas) >= 2:
+            fecha_min = fechas_validas.min()
+            fecha_max = fechas_validas.max()
+            st.sidebar.header("Filtros")
+            filtro_vehiculo = st.sidebar.multiselect('Vehículo', vehiculos, default=list(vehiculos))
+            rango_fecha = st.sidebar.slider(
+                'Rango de fechas',
+                min_value=fecha_min, max_value=fecha_max,
+                value=(fecha_min, fecha_max),
+                format="YYYY-MM-DD HH:mm"
+            )
+            texto = st.sidebar.text_input('Búsqueda libre (dirección, vehículo...)', '')
 
-        st.sidebar.header("Filtros")
-        filtro_vehiculo = st.sidebar.multiselect('Vehículo', vehiculos, default=list(vehiculos))
-        rango_fecha = st.sidebar.slider(
-            'Rango de fechas',
-            min_value=fecha_min, max_value=fecha_max,
-            value=(fecha_min, fecha_max),
-            format="YYYY-MM-DD HH:mm"
-        )
-        texto = st.sidebar.text_input('Búsqueda libre (dirección, vehículo...)', '')
-
-        # Filtrado
-        df_filtro = df_total[
-            (df_total['Activo'].isin(filtro_vehiculo)) &
-            (df_total['fechahora'] >= rango_fecha[0]) & (df_total['fechahora'] <= rango_fecha[1])
-        ]
-        if texto:
-            df_filtro = df_filtro[df_filtro.apply(lambda row: texto.lower() in str(row).lower(), axis=1)]
+            # Filtrado
+            df_filtro = df_total[
+                (df_total['Activo'].isin(filtro_vehiculo)) &
+                (df_total['fechahora'] >= rango_fecha[0]) & (df_total['fechahora'] <= rango_fecha[1])
+            ]
+            if texto:
+                df_filtro = df_filtro[df_filtro.apply(lambda row: texto.lower() in str(row).lower(), axis=1)]
+        else:
+            st.warning('No hay fechas válidas para filtrar. Comprueba que los Excels tienen datos y el formato es correcto.')
+            df_filtro = pd.DataFrame()  # vacío
 
         # Construir mapa
         st.subheader("Vista en Mapa")
