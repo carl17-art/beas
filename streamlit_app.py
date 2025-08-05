@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
+from datetime import datetime, time
 
 st.set_page_config(layout="wide")
 st.title("Mapa Interactivo de Desplazamientos y Paradas de Vehículos")
@@ -10,6 +11,24 @@ st.write("""
 Sube uno o varios archivos Excel exportados del sistema de vehículos.  
 Filtra por vehículo, fechas o texto. Cada punto muestra los detalles asociados.
 """)
+
+def parse_fecha(dia):
+    try:
+        return dia.split(" ",1)[1] if " " in dia else dia
+    except Exception:
+        return ""
+
+def concat_fecha_hora(row):
+    fecha_str = str(row["Fecha"])
+    hora = row["Hora de inicio"]
+    if isinstance(hora, time):
+        hora_str = hora.strftime('%H:%M:%S')
+    else:
+        hora_str = "00:00:00"
+    try:
+        return datetime.strptime(fecha_str + " " + hora_str, "%d/%m/%y %H:%M:%S")
+    except Exception:
+        return pd.NaT
 
 uploaded_files = st.file_uploader("Sube tus archivos Excel", accept_multiple_files=True, type=["xlsx", "xls"])
 
@@ -27,25 +46,13 @@ if uploaded_files:
         df_total.columns = [c.strip() for c in df_total.columns]
         
         # --- Normalizar fecha/hora ---
-        def parse_fecha(dia):
-            try:
-                return dia.split(" ",1)[1] if " " in dia else dia
-            except Exception:
-                return ""
         df_total["Fecha"] = df_total["Día"].astype(str).apply(parse_fecha)
-        
-        def concat_fecha_hora(row):
-            f = str(row["Fecha"])
-            h = str(row["Hora de inicio"])
-            if "nan" in f.lower() or "nan" in h.lower():
-                return None
-            return f"{f} {h}"
         df_total["fechahora"] = df_total.apply(concat_fecha_hora, axis=1)
-        df_total["fechahora"] = pd.to_datetime(df_total["fechahora"], format="%d/%m/%y %H:%M:%S", errors="coerce")
 
         vehiculos = df_total['Activo'].dropna().unique()
         fechas_validas = df_total['fechahora'].dropna()
-        if len(fechas_validas) >= 2:
+        # Bloque seguro para slider
+        if len(fechas_validas) >= 2 and fechas_validas.dtype.kind == 'M':
             fecha_min = fechas_validas.min()
             fecha_max = fechas_validas.max()
             st.sidebar.header("Filtros")
@@ -83,11 +90,11 @@ if uploaded_files:
                 # Hora: extrae sólo la parte de la hora, nunca lanza error
                 hora_inicio = "-"
                 if pd.notnull(row['Hora de inicio']):
-                    h = str(row['Hora de inicio'])
-                    if " " in h:
-                        hora_inicio = h.split(" ")[-1]
+                    h = row['Hora de inicio']
+                    if isinstance(h, time):
+                        hora_inicio = h.strftime("%H:%M:%S")
                     else:
-                        hora_inicio = h
+                        hora_inicio = str(h)
                 popup = f"""
                 <b>Vehículo:</b> {row['Activo']}<br>
                 <b>Fecha:</b> {row['Fecha']}<br>
