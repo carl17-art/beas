@@ -3,6 +3,7 @@ import pandas as pd
 import folium
 from streamlit_folium import st_folium
 from datetime import datetime, time
+import itertools
 
 st.set_page_config(layout="wide")
 st.title("Mapa Interactivo de Desplazamientos y Paradas de Vehículos")
@@ -54,11 +55,9 @@ if uploaded_files:
         
         slider_ok = False
         if len(fechas_validas) >= 2 and fechas_validas.dtype.kind == 'M':
-            # Forzar tipo datetime puro de Python
             try:
                 fecha_min_pd = pd.to_datetime(fechas_validas.min())
                 fecha_max_pd = pd.to_datetime(fechas_validas.max())
-                # Convierte a datetime.datetime puro
                 fecha_min = fecha_min_pd.to_pydatetime()
                 fecha_max = fecha_max_pd.to_pydatetime()
                 if pd.isnull(fecha_min) or pd.isnull(fecha_max):
@@ -94,10 +93,14 @@ if uploaded_files:
             st.warning('No hay fechas válidas para filtrar. Comprueba que los Excels tienen datos y el formato es correcto.')
             df_filtro = pd.DataFrame()  # vacío
 
-
-        # Construir mapa
+        # ---------- MARCADORES DE COLORES POR VEHÍCULO ----------
         st.subheader("Vista en Mapa")
         if not df_filtro.empty:
+            # Asigna color único a cada vehículo filtrado
+            colores_base = ["blue", "red", "green", "purple", "orange", "darkred", "lightred", "beige", "darkblue", "darkgreen"]
+            vehiculos_unicos = list(df_filtro['Activo'].dropna().unique())
+            colores = dict(zip(vehiculos_unicos, itertools.cycle(colores_base)))
+
             m = folium.Map(location=[
                 df_filtro["Latitud de inicio"].astype(float).mean() / 1e6,
                 df_filtro["Longitud de inicio"].astype(float).mean() / 1e6
@@ -106,6 +109,8 @@ if uploaded_files:
             for _, row in df_filtro.iterrows():
                 lat = row["Latitud de inicio"] / 1e6
                 lon = row["Longitud de inicio"] / 1e6
+                vehiculo = row['Activo']
+                color_icono = colores.get(vehiculo, "blue")
                 # Hora: extrae sólo la parte de la hora, nunca lanza error
                 hora_inicio = "-"
                 if pd.notnull(row['Hora de inicio']):
@@ -115,7 +120,7 @@ if uploaded_files:
                     else:
                         hora_inicio = str(h)
                 popup = f"""
-                <b>Vehículo:</b> {row['Activo']}<br>
+                <b>Vehículo:</b> {vehiculo}<br>
                 <b>Fecha:</b> {row['Fecha']}<br>
                 <b>Hora inicio:</b> {hora_inicio}<br>
                 <b>Dirección:</b> {row['Ubicación de inicio']}<br>
@@ -126,7 +131,7 @@ if uploaded_files:
                 folium.Marker(
                     [lat, lon],
                     popup=popup,
-                    icon=folium.Icon(color="blue", icon="car", prefix="fa")
+                    icon=folium.Icon(color=color_icono, icon="car", prefix="fa")
                 ).add_to(m)
             st_folium(m, width=1200, height=750)
         else:
