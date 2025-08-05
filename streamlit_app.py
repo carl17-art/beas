@@ -29,15 +29,24 @@ if uploaded_files:
         # Normalizar nombres de columnas por si acaso
         df_total.columns = [c.strip() for c in df_total.columns]
         # Convertir fechas y horas
+        # --- Normalizar fecha/hora ---
         def parse_fecha(dia):
             # Quita el día de la semana y deja solo la fecha
-            # 'lun 21/7/25' -> '21/7/25'
-            return dia.split(" ",1)[1] if " " in dia else dia
-
+            try:
+                return dia.split(" ",1)[1] if " " in dia else dia
+            except Exception:
+                return ""
         df_total["Fecha"] = df_total["Día"].astype(str).apply(parse_fecha)
-        # Si alguna hora no tiene formato válido la marcamos NaN
-        df_total["Hora de inicio"] = pd.to_datetime(df_total["Fecha"] + " " + df_total["Hora de inicio"], format="%d/%m/%y %H:%M:%S", errors="coerce")
-        df_total["Hora de fin"] = pd.to_datetime(df_total["Fecha"] + " " + df_total["Hora de fin"], format="%d/%m/%y %H:%M:%S", errors="coerce")
+        
+        def concat_fecha_hora(row):
+            f = str(row["Fecha"])
+            h = str(row["Hora de inicio"])
+            if "nan" in f.lower() or "nan" in h.lower():
+                return None
+            return f"{f} {h}"
+        df_total["fechahora"] = df_total.apply(concat_fecha_hora, axis=1)
+        df_total["fechahora"] = pd.to_datetime(df_total["fechahora"], format="%d/%m/%y %H:%M:%S", errors="coerce")
+
 
         # Usaremos la hora de inicio para la línea de tiempo y filtros
         df_total["fechahora"] = df_total["Hora de inicio"]
