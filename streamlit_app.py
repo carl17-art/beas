@@ -93,20 +93,38 @@ if uploaded_files:
             st.warning('No hay fechas válidas para filtrar. Comprueba que los Excels tienen datos y el formato es correcto.')
             df_filtro = pd.DataFrame()  # vacío
 
+        # --- SLIDER ACUMULATIVO TEMPORAL ---
+        df_filtro = df_filtro.sort_values("fechahora").reset_index(drop=True)
+        total_puntos = len(df_filtro)
+        if total_puntos > 0:
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("### Reproducción temporal")
+            idx_slider = st.sidebar.slider(
+                "Mostrar puntos hasta el número:",
+                min_value=1,
+                max_value=total_puntos,
+                value=total_puntos,
+                step=1,
+                help="Mueve el slider para ver la evolución temporal de los puntos en el mapa."
+            )
+            df_play = df_filtro.iloc[:idx_slider]
+        else:
+            df_play = df_filtro  # vacío
+
         # ---------- MARCADORES DE COLORES POR VEHÍCULO ----------
         st.subheader("Vista en Mapa")
-        if not df_filtro.empty:
+        if not df_play.empty:
             # Asigna color único a cada vehículo filtrado
             colores_base = ["blue", "red", "green", "purple", "orange", "darkred", "lightred", "beige", "darkblue", "darkgreen"]
-            vehiculos_unicos = list(df_filtro['Activo'].dropna().unique())
+            vehiculos_unicos = list(df_play['Activo'].dropna().unique())
             colores = dict(zip(vehiculos_unicos, itertools.cycle(colores_base)))
 
             m = folium.Map(location=[
-                df_filtro["Latitud de inicio"].astype(float).mean() / 1e6,
-                df_filtro["Longitud de inicio"].astype(float).mean() / 1e6
+                df_play["Latitud de inicio"].astype(float).mean() / 1e6,
+                df_play["Longitud de inicio"].astype(float).mean() / 1e6
             ], zoom_start=10)
 
-            for _, row in df_filtro.iterrows():
+            for _, row in df_play.iterrows():
                 lat = row["Latitud de inicio"] / 1e6
                 lon = row["Longitud de inicio"] / 1e6
                 vehiculo = row['Activo']
@@ -139,7 +157,7 @@ if uploaded_files:
 
         # Descargar CSV filtrado
         st.markdown("### Descargar datos filtrados")
-        csv = df_filtro.to_csv(index=False).encode('utf-8')
+        csv = df_play.to_csv(index=False).encode('utf-8')
         st.download_button("Descargar CSV", data=csv, file_name='datos_filtrados.csv', mime='text/csv')
 else:
     st.info("Sube al menos un archivo Excel para empezar.")
