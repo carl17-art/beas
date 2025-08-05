@@ -51,21 +51,23 @@ if uploaded_files:
 
         vehiculos = df_total['Activo'].dropna().unique()
         fechas_validas = df_total['fechahora'].dropna()
-
-        # BLOQUE ROBUSTO PARA SLIDER DE FECHAS
+        
         slider_ok = False
         if len(fechas_validas) >= 2 and fechas_validas.dtype.kind == 'M':
-            # Forzar tipo datetime
+            # Forzar tipo datetime puro de Python
             try:
-                fecha_min = pd.to_datetime(fechas_validas.min())
-                fecha_max = pd.to_datetime(fechas_validas.max())
+                fecha_min_pd = pd.to_datetime(fechas_validas.min())
+                fecha_max_pd = pd.to_datetime(fechas_validas.max())
+                # Convierte a datetime.datetime puro
+                fecha_min = fecha_min_pd.to_pydatetime()
+                fecha_max = fecha_max_pd.to_pydatetime()
                 if pd.isnull(fecha_min) or pd.isnull(fecha_max):
                     raise ValueError("Extremos nulos")
                 slider_ok = True
             except Exception as e:
                 st.error(f"Error con las fechas para el slider: {e}")
                 slider_ok = False
-
+        
         if slider_ok:
             st.sidebar.header("Filtros")
             filtro_vehiculo = st.sidebar.multiselect('Vehículo', vehiculos, default=list(vehiculos))
@@ -80,7 +82,7 @@ if uploaded_files:
                 st.error(f"Error en el slider de fechas: {e}")
                 rango_fecha = (fecha_min, fecha_max)
             texto = st.sidebar.text_input('Búsqueda libre (dirección, vehículo...)', '')
-
+        
             # Filtrado
             df_filtro = df_total[
                 (df_total['Activo'].isin(filtro_vehiculo)) &
@@ -91,6 +93,7 @@ if uploaded_files:
         else:
             st.warning('No hay fechas válidas para filtrar. Comprueba que los Excels tienen datos y el formato es correcto.')
             df_filtro = pd.DataFrame()  # vacío
+
 
         # Construir mapa
         st.subheader("Vista en Mapa")
