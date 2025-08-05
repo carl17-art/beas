@@ -51,18 +51,34 @@ if uploaded_files:
 
         vehiculos = df_total['Activo'].dropna().unique()
         fechas_validas = df_total['fechahora'].dropna()
-        # Bloque seguro para slider
+
+        # BLOQUE ROBUSTO PARA SLIDER DE FECHAS
+        slider_ok = False
         if len(fechas_validas) >= 2 and fechas_validas.dtype.kind == 'M':
-            fecha_min = fechas_validas.min()
-            fecha_max = fechas_validas.max()
+            # Forzar tipo datetime
+            try:
+                fecha_min = pd.to_datetime(fechas_validas.min())
+                fecha_max = pd.to_datetime(fechas_validas.max())
+                if pd.isnull(fecha_min) or pd.isnull(fecha_max):
+                    raise ValueError("Extremos nulos")
+                slider_ok = True
+            except Exception as e:
+                st.error(f"Error con las fechas para el slider: {e}")
+                slider_ok = False
+
+        if slider_ok:
             st.sidebar.header("Filtros")
             filtro_vehiculo = st.sidebar.multiselect('Vehículo', vehiculos, default=list(vehiculos))
-            rango_fecha = st.sidebar.slider(
-                'Rango de fechas',
-                min_value=fecha_min, max_value=fecha_max,
-                value=(fecha_min, fecha_max),
-                format="YYYY-MM-DD HH:mm"
-            )
+            try:
+                rango_fecha = st.sidebar.slider(
+                    'Rango de fechas',
+                    min_value=fecha_min, max_value=fecha_max,
+                    value=(fecha_min, fecha_max),
+                    format="YYYY-MM-DD HH:mm"
+                )
+            except Exception as e:
+                st.error(f"Error en el slider de fechas: {e}")
+                rango_fecha = (fecha_min, fecha_max)
             texto = st.sidebar.text_input('Búsqueda libre (dirección, vehículo...)', '')
 
             # Filtrado
